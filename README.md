@@ -65,7 +65,7 @@ flowchart LR
 
 4. Point an LLM agent at the tools: edit your conversation agent (for example Anthropic, OpenAI, Google, or Ollama) and set its **control Home Assistant** API to **ha-mcp** like in the picture below.
    
-   <img src="assets/openai-ha-mcp.png" alt="Setting an OpenAI conversation agent's &quot;Control Home Assistant&quot; API to ha-mcp" width="320">
+   <img src="https://github.com/victorigualada/ha-assist-mcp-chat/raw/main/assets/openai-ha-mcp.png" alt="Setting an OpenAI conversation agent's &quot;Control Home Assistant&quot; API to ha-mcp" width="320">
 
 5. Ensure you use an LLM model that can use tools.
 

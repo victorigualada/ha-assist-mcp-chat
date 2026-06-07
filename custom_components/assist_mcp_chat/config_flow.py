@@ -11,7 +11,6 @@ from homeassistant.const import CONF_URL
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
-from homeassistant.helpers.service_info.hassio import HassioServiceInfo
 
 from .const import DOMAIN
 from .coordinator import mcp_client
@@ -26,6 +25,11 @@ CONF_SECRET_PATH = "secret_path"
 ADDON_PORT = 9583
 # Substring of the installed add-on slug (Supervisor prefixes a repository id).
 ADDON_SLUG = "ha_mcp"
+# One-click "add the ha-mcp add-on repository" link, shown when it isn't installed.
+INSTALL_URL = (
+    "https://my.home-assistant.io/redirect/supervisor_add_addon_repository/"
+    "?repository_url=https%3A%2F%2Fgithub.com%2Fhomeassistant-ai%2Fha-mcp"
+)
 
 
 def _compose_url(base: str, secret: str) -> str:
@@ -39,34 +43,37 @@ def _compose_url(base: str, secret: str) -> str:
     return f"{base}{secret}"
 
 
-async def _async_addon_base_url(hass: HomeAssistant) -> str | None:
-    """Best-effort base URL of the ha-mcp add-on under Supervisor.
+async def _async_addon_state(hass: HomeAssistant) -> tuple[str | None, bool]:
+    """Detect the ha-mcp add-on under Supervisor.
 
-    The add-on's secret path is private to it, so the user still supplies that;
-    we only prefill scheme/host/port. A wrong guess is harmless — the URL field
-    stays editable and the connection is validated before the entry is created.
+    Returns ``(base_url, show_install_hint)``:
+    - ``base_url`` prefills scheme/host/port when the add-on is installed. The
+      secret path is private to the add-on, so the user still supplies that; a
+      wrong host guess is harmless since the URL stays editable and is validated.
+    - ``show_install_hint`` is True when we're on Supervisor but the add-on isn't
+      installed, so the form can offer a one-click install link.
     """
     try:
         from homeassistant.components.hassio import is_hassio
     except ImportError:
-        return None
+        return None, False
     if not is_hassio(hass):
-        return None
+        return None, False
 
-    host = "homeassistant.local"
     try:
         from homeassistant.components.hassio.handler import get_supervisor_client
 
         client = get_supervisor_client(hass)
         addons = await client.addons.list()
         addon = next((a for a in addons if ADDON_SLUG in a.slug), None)
-        if addon is not None:
-            info = await client.addons.addon_info(addon.slug)
-            host = getattr(info, "hostname", None) or host
-    except Exception:  # noqa: BLE001 - best-effort; fall back to the default host
+        if addon is None:
+            return None, True
+        info = await client.addons.addon_info(addon.slug)
+        host = getattr(info, "hostname", None) or "homeassistant.local"
+        return f"http://{host}:{ADDON_PORT}", False
+    except Exception:  # noqa: BLE001 - best-effort detection
         _LOGGER.debug("ha-mcp add-on detection failed", exc_info=True)
-
-    return f"http://{host}:{ADDON_PORT}"
+        return None, False
 
 
 async def validate_input(hass: HomeAssistant, url: str) -> dict[str, Any]:
@@ -97,9 +104,9 @@ class HaMcpChatConfigFlow(ConfigFlow, domain=DOMAIN):
 
     def __init__(self) -> None:
         """Initialize the config flow."""
-        self._discovered_url: str | None = None
-        self._discovered_title: str | None = None
-        self._default_url: str | None = None
+        self._default_url = ""
+        self._show_install_hint = False
+        self._detected = False
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -129,8 +136,12 @@ class HaMcpChatConfigFlow(ConfigFlow, domain=DOMAIN):
                     title=info["title"], data={CONF_URL: url}
                 )
 
-        if self._default_url is None:
-            self._default_url = await _async_addon_base_url(self.hass) or ""
+        if not self._detected:
+            self._default_url, self._show_install_hint = await _async_addon_state(
+                self.hass
+            )
+            self._default_url = self._default_url or ""
+            self._detected = True
         prior = user_input or {}
         schema = vol.Schema(
             {
@@ -142,6 +153,12 @@ class HaMcpChatConfigFlow(ConfigFlow, domain=DOMAIN):
                 ): str,
             }
         )
+        addon_hint = ""
+        if self._show_install_hint:
+            addon_hint = (
+                "\n\n**Don't have the ha-mcp add-on yet?** "
+                f"[Add it to Home Assistant]({INSTALL_URL})"
+            )
         return self.async_show_form(
             step_id="user",
             data_schema=schema,
@@ -149,63 +166,8 @@ class HaMcpChatConfigFlow(ConfigFlow, domain=DOMAIN):
             description_placeholders={
                 "example_url": EXAMPLE_URL,
                 "example_path": EXAMPLE_SECRET,
+                "addon_hint": addon_hint,
             },
-        )
-
-    async def async_step_hassio(
-        self, discovery_info: HassioServiceInfo
-    ) -> ConfigFlowResult:
-        """Handle discovery of the ha-mcp add-on.
-
-        When ha-mcp runs as a Home Assistant add-on it advertises its connection
-        details over Supervisor discovery, letting us connect over the internal
-        network without the user entering a URL.
-        """
-        config = discovery_info.config
-        url = config.get(CONF_URL)
-        if url is None and (host := config.get("host")):
-            scheme = config.get("ssl") and "https" or "http"
-            url = f"{scheme}://{host}:{config.get('port', 80)}{config.get('path', '/mcp')}"
-        if url is None:
-            return self.async_abort(reason="invalid_discovery_info")
-
-        await self.async_set_unique_id(discovery_info.uuid or discovery_info.slug)
-        self._abort_if_unique_id_configured(updates={CONF_URL: url})
-        self._async_abort_entries_match({CONF_URL: url})
-
-        self._discovered_url = url
-        self._discovered_title = discovery_info.name
-        self.context["title_placeholders"] = {"name": discovery_info.name}
-        return await self.async_step_hassio_confirm()
-
-    async def async_step_hassio_confirm(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
-        """Confirm adding the discovered ha-mcp add-on."""
-        assert self._discovered_url is not None
-        errors: dict[str, str] = {}
-        if user_input is not None:
-            try:
-                info = await validate_input(self.hass, self._discovered_url)
-            except TimeoutConnectError:
-                errors["base"] = "timeout_connect"
-            except CannotConnect:
-                errors["base"] = "cannot_connect"
-            except MissingCapabilities:
-                return self.async_abort(reason="missing_capabilities")
-            except Exception:
-                _LOGGER.exception("Unexpected exception")
-                errors["base"] = "unknown"
-            else:
-                return self.async_create_entry(
-                    title=info["title"] or self._discovered_title or "ha-mcp",
-                    data={CONF_URL: self._discovered_url},
-                )
-
-        return self.async_show_form(
-            step_id="hassio_confirm",
-            errors=errors,
-            description_placeholders={"name": self._discovered_title or "ha-mcp"},
         )
 
 

@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Conectar con ha-mcp",
-        "description": "Introduce la URL de tu servidor ha-mcp. En Home Assistant OS / Supervised la URL del complemento se rellena automáticamente; solo pega la ruta secreta del registro del complemento.",
+        "description": "Introduce la URL de tu servidor ha-mcp. En Home Assistant OS / Supervised la URL del complemento se rellena automáticamente; solo pega la ruta secreta del registro del complemento.{addon_hint}",
         "data": {
           "url": "URL",
           "secret_path": "Ruta secreta"
@@ -13,10 +13,6 @@
           "url": "URL base del servidor ha-mcp, por ejemplo {example_url}.",
           "secret_path": "La ruta secreta de la URL MCP del complemento, por ejemplo {example_path}. Déjala vacía si la URL ya la incluye."
         }
-      },
-      "hassio_confirm": {
-        "title": "Conectar con ha-mcp",
-        "description": "¿Quieres conectar Home Assistant con el complemento ha-mcp detectado {name}?"
       }
     },
     "error": {
@@ -27,8 +23,7 @@
     },
     "abort": {
       "already_configured": "Este servidor ha-mcp ya está configurado.",
-      "missing_capabilities": "El servidor no expone ninguna herramienta, por lo que no se puede usar.",
-      "invalid_discovery_info": "El complemento ha-mcp no proporcionó suficiente información para conectarse."
+      "missing_capabilities": "El servidor no expone ninguna herramienta, por lo que no se puede usar."
     }
   }
 }

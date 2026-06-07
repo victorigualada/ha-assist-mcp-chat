@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Se connecter à ha-mcp",
-        "description": "Saisissez l'URL de votre serveur ha-mcp. Sous Home Assistant OS / Supervisé, l'URL du module complémentaire est préremplie — collez simplement le chemin secret depuis le journal du module.",
+        "description": "Saisissez l'URL de votre serveur ha-mcp. Sous Home Assistant OS / Supervisé, l'URL du module complémentaire est préremplie — collez simplement le chemin secret depuis le journal du module.{addon_hint}",
         "data": {
           "url": "URL",
           "secret_path": "Chemin secret"
@@ -13,10 +13,6 @@
           "url": "URL de base du serveur ha-mcp, par exemple {example_url}.",
           "secret_path": "Le chemin secret de l'URL MCP du module complémentaire, par exemple {example_path}. Laissez vide si l'URL le contient déjà."
         }
-      },
-      "hassio_confirm": {
-        "title": "Se connecter à ha-mcp",
-        "description": "Voulez-vous connecter Home Assistant au module complémentaire ha-mcp détecté {name} ?"
       }
     },
     "error": {
@@ -27,8 +23,7 @@
     },
     "abort": {
       "already_configured": "Ce serveur ha-mcp est déjà configuré.",
-      "missing_capabilities": "Le serveur n'expose aucun outil et ne peut donc pas être utilisé.",
-      "invalid_discovery_info": "Le module complémentaire ha-mcp n'a pas fourni assez d'informations pour se connecter."
+      "missing_capabilities": "Le serveur n'expose aucun outil et ne peut donc pas être utilisé."
     }
   }
 }

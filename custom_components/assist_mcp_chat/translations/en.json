@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Connect to ha-mcp",
-        "description": "Enter your ha-mcp server URL. On Home Assistant OS / Supervised the add-on URL is prefilled — just paste the secret path from the add-on log.",
+        "description": "Enter your ha-mcp server URL. On Home Assistant OS / Supervised the add-on URL is prefilled — just paste the secret path from the add-on log.{addon_hint}",
         "data": {
           "url": "URL",
           "secret_path": "Secret path"
@@ -13,10 +13,6 @@
           "url": "Base URL of the ha-mcp server, for example {example_url}.",
           "secret_path": "The secret path from the add-on's MCP URL, for example {example_path}. Leave empty if the URL already includes it."
         }
-      },
-      "hassio_confirm": {
-        "title": "Connect to ha-mcp",
-        "description": "Do you want to connect Home Assistant to the discovered ha-mcp add-on {name}?"
       }
     },
     "error": {
@@ -27,8 +23,7 @@
     },
     "abort": {
       "already_configured": "This ha-mcp server is already configured.",
-      "missing_capabilities": "The server does not expose any tools, so it cannot be used.",
-      "invalid_discovery_info": "The ha-mcp add-on did not provide enough information to connect."
+      "missing_capabilities": "The server does not expose any tools, so it cannot be used."
     }
   }
 }

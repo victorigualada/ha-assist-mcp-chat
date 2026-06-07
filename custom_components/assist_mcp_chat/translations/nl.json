@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Verbinden met ha-mcp",
-        "description": "Voer de URL van je ha-mcp-server in. Op Home Assistant OS / Supervised wordt de add-on-URL vooraf ingevuld — plak alleen het geheime pad uit het add-on-logboek.",
+        "description": "Voer de URL van je ha-mcp-server in. Op Home Assistant OS / Supervised wordt de add-on-URL vooraf ingevuld — plak alleen het geheime pad uit het add-on-logboek.{addon_hint}",
         "data": {
           "url": "URL",
           "secret_path": "Geheim pad"
@@ -13,10 +13,6 @@
           "url": "Basis-URL van de ha-mcp-server, bijvoorbeeld {example_url}.",
           "secret_path": "Het geheime pad uit de MCP-URL van de add-on, bijvoorbeeld {example_path}. Laat leeg als de URL het al bevat."
         }
-      },
-      "hassio_confirm": {
-        "title": "Verbinden met ha-mcp",
-        "description": "Wil je Home Assistant verbinden met de gevonden ha-mcp-add-on {name}?"
       }
     },
     "error": {
@@ -27,8 +23,7 @@
     },
     "abort": {
       "already_configured": "Deze ha-mcp-server is al geconfigureerd.",
-      "missing_capabilities": "De server biedt geen tools aan en kan daarom niet worden gebruikt.",
-      "invalid_discovery_info": "De ha-mcp-add-on heeft niet genoeg informatie gegeven om verbinding te maken."
+      "missing_capabilities": "De server biedt geen tools aan en kan daarom niet worden gebruikt."
     }
   }
 }
