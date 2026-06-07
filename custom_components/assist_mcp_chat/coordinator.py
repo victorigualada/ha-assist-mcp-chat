@@ -9,7 +9,7 @@ which is the reviewed reference implementation for talking to a remote MCP serve
 """
 
 import asyncio
-from collections.abc import AsyncGenerator, Awaitable, Callable
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 import logging
 
@@ -22,9 +22,9 @@ import voluptuous as vol
 from voluptuous_openapi import convert_to_voluptuous
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_TOKEN, CONF_URL
+from homeassistant.const import CONF_URL
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import llm
 from homeassistant.helpers.httpx_client import create_async_httpx_client
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -34,31 +34,24 @@ from .const import DOMAIN, TIMEOUT, UPDATE_INTERVAL
 
 _LOGGER = logging.getLogger(__name__)
 
-type TokenManager = Callable[[], Awaitable[str]]
-
 
 @asynccontextmanager
 async def mcp_client(
     hass: HomeAssistant,
     url: str,
-    token_manager: TokenManager | None = None,
 ) -> AsyncGenerator[ClientSession]:
     """Create an MCP client session for the ha-mcp server.
 
-    Streamable HTTP is attempted first; a 405 (or generic ``McpError``) is the
-    documented signal in the MCP transport spec that the server only speaks the
-    older SSE transport, so we fall back to it.
+    The ha-mcp server authenticates via a secret path embedded in ``url``; no
+    separate credentials are sent. Streamable HTTP is attempted first; a 405 (or
+    generic ``McpError``) is the documented signal in the MCP transport spec that
+    the server only speaks the older SSE transport, so we fall back to it.
     """
-    headers: dict[str, str] = {}
-    if token_manager is not None:
-        token = await token_manager()
-        headers["Authorization"] = f"Bearer {token}"
-
     try:
         async with (
             streamable_http_client(
                 url=url,
-                http_client=create_async_httpx_client(hass, headers=headers),
+                http_client=create_async_httpx_client(hass),
             ) as (read_stream, write_stream, _),
             ClientSession(read_stream, write_stream) as session,
         ):
@@ -75,7 +68,7 @@ async def mcp_client(
             )
             try:
                 async with (
-                    sse_client(url=url, headers=headers) as streams,
+                    sse_client(url=url) as streams,
                     ClientSession(*streams) as session,
                 ):
                     await session.initialize()
@@ -88,22 +81,6 @@ async def mcp_client(
             raise main_error from streamable_err
 
 
-def token_manager_from_entry(entry: ConfigEntry) -> TokenManager | None:
-    """Return a token manager for the config entry, or None when unauthenticated.
-
-    ha-mcp running as a Home Assistant add-on is reached over the internal network
-    and may not require a bearer token, in which case no token is stored.
-    """
-    token = entry.data.get(CONF_TOKEN)
-    if not token:
-        return None
-
-    async def token_manager() -> str:
-        return token
-
-    return token_manager
-
-
 class HaMcpChatTool(llm.Tool):
     """A tool exposed by the ha-mcp server."""
 
@@ -113,14 +90,12 @@ class HaMcpChatTool(llm.Tool):
         description: str | None,
         parameters: vol.Schema,
         server_url: str,
-        token_manager: TokenManager | None = None,
     ) -> None:
         """Initialize the tool."""
         self.name = name
         self.description = description
         self.parameters = parameters
         self.server_url = server_url
-        self.token_manager = token_manager
 
     async def async_call(
         self,
@@ -132,7 +107,7 @@ class HaMcpChatTool(llm.Tool):
         try:
             async with (
                 asyncio.timeout(TIMEOUT),
-                mcp_client(hass, self.server_url, self.token_manager) as session,
+                mcp_client(hass, self.server_url) as session,
             ):
                 result = await session.call_tool(
                     tool_input.tool_name, tool_input.tool_args
@@ -153,7 +128,6 @@ class HaMcpChatCoordinator(DataUpdateCoordinator[list[llm.Tool]]):
         self,
         hass: HomeAssistant,
         config_entry: ConfigEntry,
-        token_manager: TokenManager | None = None,
     ) -> None:
         """Initialize the coordinator."""
         super().__init__(
@@ -163,7 +137,6 @@ class HaMcpChatCoordinator(DataUpdateCoordinator[list[llm.Tool]]):
             config_entry=config_entry,
             update_interval=UPDATE_INTERVAL,
         )
-        self.token_manager = token_manager
 
     async def _async_update_data(self) -> list[llm.Tool]:
         """Fetch the tool list from the ha-mcp server."""
@@ -173,18 +146,11 @@ class HaMcpChatCoordinator(DataUpdateCoordinator[list[llm.Tool]]):
                 mcp_client(
                     self.hass,
                     self.config_entry.data[CONF_URL],
-                    self.token_manager,
                 ) as session,
             ):
                 result = await session.list_tools()
         except TimeoutError as error:
             raise UpdateFailed(f"Timeout when listing tools: {error}") from error
-        except httpx.HTTPStatusError as error:
-            if error.response.status_code == 401 and self.token_manager is not None:
-                raise ConfigEntryAuthFailed(
-                    "The ha-mcp server requires authentication"
-                ) from error
-            raise UpdateFailed(f"Error communicating with ha-mcp: {error}") from error
         except httpx.HTTPError as err:
             raise UpdateFailed(f"Error communicating with ha-mcp: {err}") from err
 
@@ -202,7 +168,6 @@ class HaMcpChatCoordinator(DataUpdateCoordinator[list[llm.Tool]]):
                     tool.description,
                     parameters,
                     self.config_entry.data[CONF_URL],
-                    self.token_manager,
                 )
             )
         return tools

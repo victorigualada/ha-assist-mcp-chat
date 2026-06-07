@@ -22,8 +22,8 @@ jobs:
       - uses: hacs/action@main
         with:
           category: integration
-          # The domain isn't in the home-assistant/brands repo yet; drop this
-          # once it is so the brands check runs.
+          # Drop this once custom_integrations/assist_mcp_chat is merged into
+          # home-assistant/brands; until then the brands check has nothing to find.
           ignore: brands
 
   frontend:

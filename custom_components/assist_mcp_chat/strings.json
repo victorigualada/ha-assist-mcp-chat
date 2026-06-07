@@ -4,14 +4,14 @@
     "step": {
       "user": {
         "title": "Connect to ha-mcp",
-        "description": "Enter the address of your ha-mcp server, for example {example_url}. Leave the token empty if the server does not require authentication.",
+        "description": "Enter your ha-mcp server URL. On Home Assistant OS / Supervised the add-on URL is prefilled — just paste the secret path from the add-on log.",
         "data": {
           "url": "URL",
-          "token": "Access token"
+          "secret_path": "Secret path"
         },
         "data_description": {
-          "url": "The full URL of the ha-mcp server's MCP endpoint.",
-          "token": "A long-lived access token, if your ha-mcp server requires one."
+          "url": "Base URL of the ha-mcp server, for example {example_url}.",
+          "secret_path": "The secret path from the add-on's MCP URL, for example {example_path}. Leave empty if the URL already includes it."
         }
       },
       "hassio_confirm": {
@@ -22,7 +22,6 @@
     "error": {
       "invalid_url": "The URL is not valid.",
       "cannot_connect": "Failed to connect to the ha-mcp server.",
-      "invalid_auth": "The access token was rejected by the ha-mcp server.",
       "timeout_connect": "Timed out while connecting to the ha-mcp server.",
       "unknown": "Unexpected error"
     },

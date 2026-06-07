@@ -4,14 +4,14 @@
     "step": {
       "user": {
         "title": "Se connecter à ha-mcp",
-        "description": "Saisissez l'adresse de votre serveur ha-mcp, par exemple {example_url}. Laissez le jeton vide si le serveur ne nécessite pas d'authentification.",
+        "description": "Saisissez l'URL de votre serveur ha-mcp. Sous Home Assistant OS / Supervisé, l'URL du module complémentaire est préremplie — collez simplement le chemin secret depuis le journal du module.",
         "data": {
           "url": "URL",
-          "token": "Jeton d'accès"
+          "secret_path": "Chemin secret"
         },
         "data_description": {
-          "url": "L'URL complète du point de terminaison MCP du serveur ha-mcp.",
-          "token": "Un jeton d'accès de longue durée, si votre serveur ha-mcp en exige un."
+          "url": "URL de base du serveur ha-mcp, par exemple {example_url}.",
+          "secret_path": "Le chemin secret de l'URL MCP du module complémentaire, par exemple {example_path}. Laissez vide si l'URL le contient déjà."
         }
       },
       "hassio_confirm": {
@@ -22,7 +22,6 @@
     "error": {
       "invalid_url": "L'URL n'est pas valide.",
       "cannot_connect": "Échec de la connexion au serveur ha-mcp.",
-      "invalid_auth": "Le jeton d'accès a été rejeté par le serveur ha-mcp.",
       "timeout_connect": "Délai d'attente dépassé lors de la connexion au serveur ha-mcp.",
       "unknown": "Erreur inattendue"
     },

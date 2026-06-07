@@ -58,8 +58,10 @@ flowchart LR
    [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=victorigualada&repository=ha-assist-mcp-chat&category=Integration)
 
 3. Go to **Settings → Devices & services → Add integration → Assist MCP Chat**.
-  - If ha-mcp runs as an add-on it is **auto-discovered** — just confirm.
-  - Otherwise enter the server **URL**
+   - If ha-mcp runs as the **add-on** (Home Assistant OS / Supervised), the server
+     **URL is prefilled** — just paste the **secret path** (the `/private_…`
+     segment) from the add-on's config into the *Secret path* field.
+   - Otherwise enter the full server **URL** (including the secret path).
 
 4. Point an LLM agent at the tools: edit your conversation agent (for example Anthropic, OpenAI, Google, or Ollama) and set its **control Home Assistant** API to **ha-mcp** like in the picture below.
    

@@ -7,41 +7,69 @@ import httpx
 import voluptuous as vol
 
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
-from homeassistant.const import CONF_TOKEN, CONF_URL
+from homeassistant.const import CONF_URL
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.service_info.hassio import HassioServiceInfo
 
 from .const import DOMAIN
-from .coordinator import TokenManager, mcp_client
+from .coordinator import mcp_client
 
 _LOGGER = logging.getLogger(__name__)
 
-STEP_USER_DATA_SCHEMA = vol.Schema(
-    {
-        vol.Required(CONF_URL): str,
-        vol.Optional(CONF_TOKEN): str,
-    }
-)
+EXAMPLE_URL = "http://homeassistant.local:9583"
+EXAMPLE_SECRET = "/private_xxxxxxxxxxxxxxxx"
+CONF_SECRET_PATH = "secret_path"
 
-EXAMPLE_URL = "http://homeassistant.local:8099/mcp"
+# The ha-mcp add-on binds this fixed port on the host network.
+ADDON_PORT = 9583
+# Substring of the installed add-on slug (Supervisor prefixes a repository id).
+ADDON_SLUG = "ha_mcp"
 
 
-def _token_manager(token: str | None) -> TokenManager | None:
-    """Build a token manager from a static token."""
-    if not token:
+def _compose_url(base: str, secret: str) -> str:
+    """Join the base server URL with the optional secret path segment."""
+    base = base.strip().rstrip("/")
+    secret = secret.strip()
+    if not secret:
+        return base
+    if not secret.startswith("/"):
+        secret = f"/{secret}"
+    return f"{base}{secret}"
+
+
+async def _async_addon_base_url(hass: HomeAssistant) -> str | None:
+    """Best-effort base URL of the ha-mcp add-on under Supervisor.
+
+    The add-on's secret path is private to it, so the user still supplies that;
+    we only prefill scheme/host/port. A wrong guess is harmless — the URL field
+    stays editable and the connection is validated before the entry is created.
+    """
+    try:
+        from homeassistant.components.hassio import is_hassio
+    except ImportError:
+        return None
+    if not is_hassio(hass):
         return None
 
-    async def token_manager() -> str:
-        return token
+    host = "homeassistant.local"
+    try:
+        from homeassistant.components.hassio.handler import get_supervisor_client
 
-    return token_manager
+        client = get_supervisor_client(hass)
+        addons = await client.addons.list()
+        addon = next((a for a in addons if ADDON_SLUG in a.slug), None)
+        if addon is not None:
+            info = await client.addons.addon_info(addon.slug)
+            host = getattr(info, "hostname", None) or host
+    except Exception:  # noqa: BLE001 - best-effort; fall back to the default host
+        _LOGGER.debug("ha-mcp add-on detection failed", exc_info=True)
+
+    return f"http://{host}:{ADDON_PORT}"
 
 
-async def validate_input(
-    hass: HomeAssistant, url: str, token: str | None
-) -> dict[str, Any]:
+async def validate_input(hass: HomeAssistant, url: str) -> dict[str, Any]:
     """Validate the URL and connect to the ha-mcp server."""
     try:
         cv.url(url)
@@ -49,14 +77,10 @@ async def validate_input(
         raise InvalidUrl from error
 
     try:
-        async with mcp_client(hass, url, _token_manager(token)) as session:
+        async with mcp_client(hass, url) as session:
             response = await session.initialize()
     except httpx.TimeoutException as error:
         raise TimeoutConnectError from error
-    except httpx.HTTPStatusError as error:
-        if error.response.status_code == 401:
-            raise InvalidAuth from error
-        raise CannotConnect from error
     except httpx.HTTPError as error:
         raise CannotConnect from error
 
@@ -75,23 +99,23 @@ class HaMcpChatConfigFlow(ConfigFlow, domain=DOMAIN):
         """Initialize the config flow."""
         self._discovered_url: str | None = None
         self._discovered_title: str | None = None
+        self._default_url: str | None = None
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Handle a connection configured manually (Docker/standalone/remote)."""
+        """Connect manually, or to the local ha-mcp add-on with a prefilled URL."""
         errors: dict[str, str] = {}
         if user_input is not None:
+            url = _compose_url(
+                user_input.get(CONF_URL, ""), user_input.get(CONF_SECRET_PATH, "")
+            )
             try:
-                info = await validate_input(
-                    self.hass, user_input[CONF_URL], user_input.get(CONF_TOKEN)
-                )
+                info = await validate_input(self.hass, url)
             except InvalidUrl:
                 errors[CONF_URL] = "invalid_url"
             except TimeoutConnectError:
                 errors["base"] = "timeout_connect"
-            except InvalidAuth:
-                errors["base"] = "invalid_auth"
             except CannotConnect:
                 errors["base"] = "cannot_connect"
             except MissingCapabilities:
@@ -100,14 +124,32 @@ class HaMcpChatConfigFlow(ConfigFlow, domain=DOMAIN):
                 _LOGGER.exception("Unexpected exception")
                 errors["base"] = "unknown"
             else:
-                self._async_abort_entries_match({CONF_URL: user_input[CONF_URL]})
-                return self.async_create_entry(title=info["title"], data=user_input)
+                self._async_abort_entries_match({CONF_URL: url})
+                return self.async_create_entry(
+                    title=info["title"], data={CONF_URL: url}
+                )
 
+        if self._default_url is None:
+            self._default_url = await _async_addon_base_url(self.hass) or ""
+        prior = user_input or {}
+        schema = vol.Schema(
+            {
+                vol.Required(
+                    CONF_URL, default=prior.get(CONF_URL, self._default_url)
+                ): str,
+                vol.Optional(
+                    CONF_SECRET_PATH, default=prior.get(CONF_SECRET_PATH, "")
+                ): str,
+            }
+        )
         return self.async_show_form(
             step_id="user",
-            data_schema=STEP_USER_DATA_SCHEMA,
+            data_schema=schema,
             errors=errors,
-            description_placeholders={"example_url": EXAMPLE_URL},
+            description_placeholders={
+                "example_url": EXAMPLE_URL,
+                "example_path": EXAMPLE_SECRET,
+            },
         )
 
     async def async_step_hassio(
@@ -117,7 +159,7 @@ class HaMcpChatConfigFlow(ConfigFlow, domain=DOMAIN):
 
         When ha-mcp runs as a Home Assistant add-on it advertises its connection
         details over Supervisor discovery, letting us connect over the internal
-        network without the user entering a URL or token.
+        network without the user entering a URL.
         """
         config = discovery_info.config
         url = config.get(CONF_URL)
@@ -144,11 +186,9 @@ class HaMcpChatConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         if user_input is not None:
             try:
-                info = await validate_input(self.hass, self._discovered_url, None)
+                info = await validate_input(self.hass, self._discovered_url)
             except TimeoutConnectError:
                 errors["base"] = "timeout_connect"
-            except InvalidAuth:
-                errors["base"] = "invalid_auth"
             except CannotConnect:
                 errors["base"] = "cannot_connect"
             except MissingCapabilities:
@@ -179,10 +219,6 @@ class CannotConnect(HomeAssistantError):
 
 class TimeoutConnectError(HomeAssistantError):
     """Error to indicate a timeout while connecting."""
-
-
-class InvalidAuth(HomeAssistantError):
-    """Error to indicate the provided token is invalid."""
 
 
 class MissingCapabilities(HomeAssistantError):
