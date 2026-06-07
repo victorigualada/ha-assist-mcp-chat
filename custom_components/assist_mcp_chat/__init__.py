@@ -15,7 +15,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import llm
 
 from .const import API_PROMPT, DOMAIN, FRONTEND_SCRIPT_URL, FRONTEND_URL_BASE
-from .coordinator import HaMcpChatCoordinator, token_manager_from_entry
+from .coordinator import HaMcpChatCoordinator
 from .types import HaMcpChatConfigEntry
 
 # Marker stored on hass.data once the shared frontend assets have been registered,
@@ -56,9 +56,7 @@ async def async_setup_entry(
     """Set up Assist MCP Chat from a config entry."""
     await _async_register_frontend(hass)
 
-    coordinator = HaMcpChatCoordinator(
-        hass, entry, token_manager_from_entry(entry)
-    )
+    coordinator = HaMcpChatCoordinator(hass, entry)
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
 

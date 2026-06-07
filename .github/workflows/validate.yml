@@ -22,8 +22,8 @@ jobs:
       - uses: hacs/action@main
         with:
           category: integration
-          # The domain isn't in the home-assistant/brands repo yet; drop this
-          # once it is so the brands check runs.
+          # Drop this once custom_integrations/assist_mcp_chat is merged into
+          # home-assistant/brands; until then the brands check has nothing to find.
           ignore: brands
 
   frontend:
@@ -43,3 +43,16 @@ jobs:
         run: npm run typecheck
       - name: Lint
         run: npm run lint
+
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install test dependencies
+        run: pip install -r requirements_test.txt
+      - name: Run pytest
+        run: pytest tests

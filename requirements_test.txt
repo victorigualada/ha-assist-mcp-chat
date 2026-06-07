@@ -1,0 +1,10 @@
+# Test dependencies. Install with: pip install -r requirements_test.txt
+# pytest-homeassistant-custom-component pulls in a matching Home Assistant core.
+pytest-homeassistant-custom-component
+# Runtime requirements the integration imports (voluptuous-openapi is provided by
+# core at runtime but must be present to import the coordinator under test).
+mcp==1.26.0
+voluptuous-openapi
+# The integration hard-depends on `frontend`, which the config flow sets up; that
+# needs the hass_frontend module. Version is pinned by the installed HA core.
+home-assistant-frontend

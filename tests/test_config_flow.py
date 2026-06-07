@@ -1,29 +1,37 @@
 """Tests for the Assist MCP Chat config flow."""
 
-from typing import Any
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import httpx
+import mcp.types
 import pytest
 
+from custom_components.assist_mcp_chat.config_flow import CONF_SECRET_PATH, INSTALL_URL
 from custom_components.assist_mcp_chat.const import DOMAIN
-from homeassistant.config_entries import SOURCE_HASSIO, SOURCE_USER
+from homeassistant.config_entries import SOURCE_USER
 from homeassistant.const import CONF_URL
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
-from homeassistant.helpers.service_info.hassio import HassioServiceInfo
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from .conftest import MCP_SERVER_URL, TEST_API_NAME
 
+# Add-on detection helper, patched per-test to simulate Supervisor environments.
+DETECT = "custom_components.assist_mcp_chat.config_flow._async_addon_state"
+
+
+async def _start(hass: HomeAssistant):
+    """Start a user-initiated config flow."""
+    return await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_USER}
+    )
+
 
 @pytest.mark.usefixtures("mock_mcp_client", "mock_setup_entry")
 async def test_user_flow_success(hass: HomeAssistant) -> None:
-    """Test a successful manual (URL) config flow."""
-    result = await hass.config_entries.flow.async_init(
-        DOMAIN, context={"source": SOURCE_USER}
-    )
+    """A successful manual (URL only) config flow."""
+    result = await _start(hass)
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "user"
 
@@ -35,20 +43,63 @@ async def test_user_flow_success(hass: HomeAssistant) -> None:
     assert result["data"] == {CONF_URL: MCP_SERVER_URL}
 
 
+@pytest.mark.usefixtures("mock_mcp_client", "mock_setup_entry")
+async def test_user_flow_composes_secret_path(hass: HomeAssistant) -> None:
+    """The base URL and secret path are joined into the stored URL."""
+    result = await _start(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            CONF_URL: "http://homeassistant.local:9583",
+            CONF_SECRET_PATH: "private_abc",
+        },
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"] == {CONF_URL: "http://homeassistant.local:9583/private_abc"}
+
+
+@pytest.mark.usefixtures("mock_mcp_client", "mock_setup_entry")
+async def test_user_flow_prefills_detected_addon(hass: HomeAssistant) -> None:
+    """When the add-on is detected the URL is prefilled and no install hint shows."""
+    base = "http://ha-mcp:9583"
+    with patch(DETECT, AsyncMock(return_value=(base, False))):
+        result = await _start(hass)
+    assert result["type"] is FlowResultType.FORM
+    assert result["data_schema"]({})[CONF_URL] == base
+    assert result["description_placeholders"]["addon_hint"] == ""
+
+
+async def test_user_flow_shows_install_hint(hass: HomeAssistant) -> None:
+    """On Supervisor without the add-on, the install link is offered."""
+    with patch(DETECT, AsyncMock(return_value=(None, True))):
+        result = await _start(hass)
+    assert result["type"] is FlowResultType.FORM
+    assert result["data_schema"]({})[CONF_URL] == ""
+    assert INSTALL_URL in result["description_placeholders"]["addon_hint"]
+
+
 @pytest.mark.usefixtures("mock_mcp_client")
 async def test_user_flow_duplicate(
     hass: HomeAssistant, config_entry: MockConfigEntry
 ) -> None:
-    """Test that the same server cannot be configured twice."""
+    """The same server cannot be configured twice."""
     config_entry.add_to_hass(hass)
-    result = await hass.config_entries.flow.async_init(
-        DOMAIN, context={"source": SOURCE_USER}
-    )
+    result = await _start(hass)
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {CONF_URL: MCP_SERVER_URL}
     )
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "already_configured"
+
+
+async def test_user_flow_invalid_url(hass: HomeAssistant) -> None:
+    """An invalid URL is rejected before connecting."""
+    result = await _start(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_URL: "not-a-url"}
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"][CONF_URL] == "invalid_url"
 
 
 @pytest.mark.parametrize(
@@ -58,14 +109,14 @@ async def test_user_flow_duplicate(
         (httpx.TimeoutException("slow"), "timeout_connect"),
         (
             httpx.HTTPStatusError(
-                "unauthorized",
+                "nope",
                 request=httpx.Request("GET", MCP_SERVER_URL),
                 response=httpx.Response(401),
             ),
-            "invalid_auth",
+            "cannot_connect",
         ),
     ],
-    ids=["cannot_connect", "timeout", "invalid_auth"],
+    ids=["cannot_connect", "timeout", "http_error"],
 )
 async def test_user_flow_connection_errors(
     hass: HomeAssistant,
@@ -73,11 +124,9 @@ async def test_user_flow_connection_errors(
     side_effect: Exception,
     expected_error: str,
 ) -> None:
-    """Test connection errors surface the right form error."""
+    """Connection errors surface the right form error."""
     mock_mcp_client.return_value.initialize.side_effect = side_effect
-    result = await hass.config_entries.flow.async_init(
-        DOMAIN, context={"source": SOURCE_USER}
-    )
+    result = await _start(hass)
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {CONF_URL: MCP_SERVER_URL}
     )
@@ -85,45 +134,31 @@ async def test_user_flow_connection_errors(
     assert result["errors"]["base"] == expected_error
 
 
-async def test_user_flow_invalid_url(hass: HomeAssistant) -> None:
-    """Test an invalid URL is rejected before connecting."""
-    result = await hass.config_entries.flow.async_init(
-        DOMAIN, context={"source": SOURCE_USER}
+async def test_user_flow_missing_capabilities(
+    hass: HomeAssistant, mock_mcp_client: AsyncMock
+) -> None:
+    """A server that exposes no tools aborts."""
+    mock_mcp_client.return_value.initialize.return_value = mcp.types.InitializeResult(
+        protocolVersion="2025-03-26",
+        capabilities=mcp.types.ServerCapabilities(tools=None),
+        serverInfo=mcp.types.Implementation(name=TEST_API_NAME, version="1.0"),
     )
+    result = await _start(hass)
     result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], {CONF_URL: "not-a-url"}
-    )
-    assert result["type"] is FlowResultType.FORM
-    assert result["errors"][CONF_URL] == "invalid_url"
-
-
-@pytest.mark.usefixtures("mock_mcp_client", "mock_setup_entry")
-async def test_hassio_discovery_flow(hass: HomeAssistant) -> None:
-    """Test the add-on discovery flow connects without a token."""
-    discovery = HassioServiceInfo(
-        config={CONF_URL: MCP_SERVER_URL},
-        name="ha-mcp",
-        slug="ha_mcp",
-        uuid="1234",
-    )
-    result = await hass.config_entries.flow.async_init(
-        DOMAIN, context={"source": SOURCE_HASSIO}, data=discovery
-    )
-    assert result["type"] is FlowResultType.FORM
-    assert result["step_id"] == "hassio_confirm"
-
-    result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
-    assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["data"] == {CONF_URL: MCP_SERVER_URL}
-
-
-async def test_hassio_discovery_invalid_info(hass: HomeAssistant) -> None:
-    """Test discovery without connection details aborts cleanly."""
-    discovery = HassioServiceInfo(
-        config={}, name="ha-mcp", slug="ha_mcp", uuid="1234"
-    )
-    result = await hass.config_entries.flow.async_init(
-        DOMAIN, context={"source": SOURCE_HASSIO}, data=discovery
+        result["flow_id"], {CONF_URL: MCP_SERVER_URL}
     )
     assert result["type"] is FlowResultType.ABORT
-    assert result["reason"] == "invalid_discovery_info"
+    assert result["reason"] == "missing_capabilities"
+
+
+async def test_user_flow_unknown_error(
+    hass: HomeAssistant, mock_mcp_client: AsyncMock
+) -> None:
+    """An unexpected error surfaces as 'unknown'."""
+    mock_mcp_client.return_value.initialize.side_effect = ValueError("boom")
+    result = await _start(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_URL: MCP_SERVER_URL}
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"]["base"] == "unknown"

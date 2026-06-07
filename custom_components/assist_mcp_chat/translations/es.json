@@ -4,32 +4,26 @@
     "step": {
       "user": {
         "title": "Conectar con ha-mcp",
-        "description": "Introduce la dirección de tu servidor ha-mcp, por ejemplo {example_url}. Deja el token vacío si el servidor no requiere autenticación.",
+        "description": "Introduce la URL de tu servidor ha-mcp. En Home Assistant OS / Supervised la URL del complemento se rellena automáticamente; solo pega la ruta secreta del registro del complemento.{addon_hint}",
         "data": {
           "url": "URL",
-          "token": "Token de acceso"
+          "secret_path": "Ruta secreta"
         },
         "data_description": {
-          "url": "La URL completa del endpoint MCP del servidor ha-mcp.",
-          "token": "Un token de acceso de larga duración, si tu servidor ha-mcp lo requiere."
+          "url": "URL base del servidor ha-mcp, por ejemplo {example_url}.",
+          "secret_path": "La ruta secreta de la URL MCP del complemento, por ejemplo {example_path}. Déjala vacía si la URL ya la incluye."
         }
-      },
-      "hassio_confirm": {
-        "title": "Conectar con ha-mcp",
-        "description": "¿Quieres conectar Home Assistant con el complemento ha-mcp detectado {name}?"
       }
     },
     "error": {
       "invalid_url": "La URL no es válida.",
       "cannot_connect": "No se ha podido conectar con el servidor ha-mcp.",
-      "invalid_auth": "El servidor ha-mcp rechazó el token de acceso.",
       "timeout_connect": "Se agotó el tiempo de espera al conectar con el servidor ha-mcp.",
       "unknown": "Error inesperado"
     },
     "abort": {
       "already_configured": "Este servidor ha-mcp ya está configurado.",
-      "missing_capabilities": "El servidor no expone ninguna herramienta, por lo que no se puede usar.",
-      "invalid_discovery_info": "El complemento ha-mcp no proporcionó suficiente información para conectarse."
+      "missing_capabilities": "El servidor no expone ninguna herramienta, por lo que no se puede usar."
     }
   }
 }

@@ -3,12 +3,13 @@
 from typing import Any
 
 from homeassistant.components.diagnostics import async_redact_data
-from homeassistant.const import CONF_TOKEN
+from homeassistant.const import CONF_URL
 from homeassistant.core import HomeAssistant
 
 from .types import HaMcpChatConfigEntry
 
-TO_REDACT = {CONF_TOKEN}
+# The URL embeds the ha-mcp secret path, so it's the sensitive value to redact.
+TO_REDACT = {CONF_URL}
 
 
 async def async_get_config_entry_diagnostics(

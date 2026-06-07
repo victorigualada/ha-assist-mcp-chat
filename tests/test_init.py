@@ -39,7 +39,11 @@ async def test_setup_registers_api_and_frontend(
     )
     assert [tool.name for tool in instance.tools] == ["HassTurnOn"]
 
-    assert FRONTEND_SCRIPT_URL in hass.data["frontend_extra_module_url"].urls
+    # The injected URL carries a cache-busting `?v=<hash>` query.
+    assert any(
+        url.startswith(FRONTEND_SCRIPT_URL)
+        for url in hass.data["frontend_extra_module_url"].urls
+    )
 
 
 @pytest.mark.usefixtures("mock_mcp_client")

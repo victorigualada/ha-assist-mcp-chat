@@ -4,32 +4,26 @@
     "step": {
       "user": {
         "title": "Mit ha-mcp verbinden",
-        "description": "Gib die Adresse deines ha-mcp-Servers ein, zum Beispiel {example_url}. Lass das Token leer, wenn der Server keine Authentifizierung erfordert.",
+        "description": "Gib die URL deines ha-mcp-Servers ein. Unter Home Assistant OS / Supervised wird die Add-on-URL vorausgefüllt – füge nur den geheimen Pfad aus dem Add-on-Protokoll ein.{addon_hint}",
         "data": {
           "url": "URL",
-          "token": "Zugriffstoken"
+          "secret_path": "Geheimer Pfad"
         },
         "data_description": {
-          "url": "Die vollständige URL des MCP-Endpunkts des ha-mcp-Servers.",
-          "token": "Ein langlebiges Zugriffstoken, falls dein ha-mcp-Server eines benötigt."
+          "url": "Basis-URL des ha-mcp-Servers, zum Beispiel {example_url}.",
+          "secret_path": "Der geheime Pfad aus der MCP-URL des Add-ons, zum Beispiel {example_path}. Leer lassen, wenn die URL ihn bereits enthält."
         }
-      },
-      "hassio_confirm": {
-        "title": "Mit ha-mcp verbinden",
-        "description": "Möchtest du Home Assistant mit dem erkannten ha-mcp-Add-on {name} verbinden?"
       }
     },
     "error": {
       "invalid_url": "Die URL ist ungültig.",
       "cannot_connect": "Verbindung zum ha-mcp-Server fehlgeschlagen.",
-      "invalid_auth": "Das Zugriffstoken wurde vom ha-mcp-Server abgelehnt.",
       "timeout_connect": "Zeitüberschreitung bei der Verbindung zum ha-mcp-Server.",
       "unknown": "Unerwarteter Fehler"
     },
     "abort": {
       "already_configured": "Dieser ha-mcp-Server ist bereits konfiguriert.",
-      "missing_capabilities": "Der Server stellt keine Werkzeuge bereit und kann daher nicht verwendet werden.",
-      "invalid_discovery_info": "Das ha-mcp-Add-on hat nicht genügend Informationen zum Verbinden bereitgestellt."
+      "missing_capabilities": "Der Server stellt keine Werkzeuge bereit und kann daher nicht verwendet werden."
     }
   }
 }
