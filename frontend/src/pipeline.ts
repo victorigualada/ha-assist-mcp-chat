@@ -94,8 +94,8 @@ export async function runPipeline(
     if (finished) {
       unsub();
     }
-  } catch (_err) {
-    cb.onError("error");
+  } catch (err) {
+    cb.onError(err instanceof Error ? err.message : "Error");
     stop();
   }
 
