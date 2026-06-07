@@ -76,13 +76,18 @@ on reload. Tool calls themselves are made on demand when the LLM invokes them.
 
 ## Development
 
-The frontend lives in `frontend_src/` and builds to `frontend/entrypoint.js`:
+The frontend project lives in `frontend/` (repo root) and builds into the
+integration's served bundle at `custom_components/assist_mcp_chat/frontend/`:
 
 ```bash
-cd frontend_src
+cd frontend
 npm install
-npm run build   # outputs ../frontend/entrypoint.js
+npm run build   # outputs ../custom_components/assist_mcp_chat/frontend/entrypoint.js
 ```
+
+The built bundle is git-ignored and shipped via the release zip (see
+`.github/workflows/release.yml`), so install via HACS or a release — not by
+cloning, which won't contain the built JS.
 
 Backend tests use `pytest-homeassistant-custom-component`:
 

@@ -1,0 +1,35 @@
+{
+  "config": {
+    "flow_title": "{name}",
+    "step": {
+      "user": {
+        "title": "Verbinden met ha-mcp",
+        "description": "Voer het adres van je ha-mcp-server in, bijvoorbeeld {example_url}. Laat het token leeg als de server geen authenticatie vereist.",
+        "data": {
+          "url": "URL",
+          "token": "Toegangstoken"
+        },
+        "data_description": {
+          "url": "De volledige URL van het MCP-eindpunt van de ha-mcp-server.",
+          "token": "Een langdurig toegangstoken, als je ha-mcp-server er een vereist."
+        }
+      },
+      "hassio_confirm": {
+        "title": "Verbinden met ha-mcp",
+        "description": "Wil je Home Assistant verbinden met de gevonden ha-mcp-add-on {name}?"
+      }
+    },
+    "error": {
+      "invalid_url": "De URL is niet geldig.",
+      "cannot_connect": "Verbinden met de ha-mcp-server is mislukt.",
+      "invalid_auth": "Het toegangstoken werd geweigerd door de ha-mcp-server.",
+      "timeout_connect": "Time-out tijdens het verbinden met de ha-mcp-server.",
+      "unknown": "Onverwachte fout"
+    },
+    "abort": {
+      "already_configured": "Deze ha-mcp-server is al geconfigureerd.",
+      "missing_capabilities": "De server biedt geen tools aan en kan daarom niet worden gebruikt.",
+      "invalid_discovery_info": "De ha-mcp-add-on heeft niet genoeg informatie gegeven om verbinding te maken."
+    }
+  }
+}

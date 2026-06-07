@@ -2,5 +2,8 @@ __pycache__/
 *.pyc
 .venv/
 node_modules/
-package-lock.json
 .DS_Store
+
+# Built frontend bundle — produced by `npm run build` and shipped via the
+# release zip (see .github/workflows/release.yml), not committed to git.
+custom_components/assist_mcp_chat/frontend/
