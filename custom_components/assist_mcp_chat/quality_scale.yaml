@@ -1,0 +1,106 @@
+rules:
+  # Bronze
+  action-setup:
+    status: exempt
+    comment: Integration does not register actions.
+  appropriate-polling: done
+  brands:
+    status: exempt
+    comment: Custom integration, not part of the Home Assistant brands repository.
+  common-modules: done
+  config-flow-test-coverage: done
+  config-flow: done
+  dependency-transparency: done
+  docs-actions:
+    status: exempt
+    comment: Integration does not register actions.
+  docs-high-level-description: done
+  docs-installation-instructions: done
+  docs-removal-instructions: done
+  entity-event-setup:
+    status: exempt
+    comment: Integration does not have entities.
+  entity-unique-id:
+    status: exempt
+    comment: Integration does not have entities.
+  has-entity-name:
+    status: exempt
+    comment: Integration does not have entities.
+  runtime-data: done
+  test-before-configure: done
+  test-before-setup: done
+  unique-config-entry: done
+
+  # Silver
+  action-exceptions:
+    status: exempt
+    comment: Integration does not register actions.
+  config-entry-unloading: done
+  docs-configuration-parameters: done
+  docs-installation-parameters: done
+  entity-unavailable:
+    status: exempt
+    comment: Integration does not have entities.
+  integration-owner: done
+  log-when-unavailable: done
+  parallel-updates:
+    status: exempt
+    comment: Integration does not have platforms.
+  reauthentication-flow:
+    status: todo
+    comment: >-
+      Token-based auth surfaces ConfigEntryAuthFailed; an explicit reauth step
+      is planned together with OAuth support.
+  test-coverage: done
+
+  # Gold
+  devices:
+    status: exempt
+    comment: Integration does not have devices.
+  diagnostics: done
+  discovery-update-info:
+    status: done
+    comment: hassio discovery updates the stored URL via _abort_if_unique_id_configured.
+  discovery: done
+  docs-data-update: done
+  docs-examples: done
+  docs-known-limitations: done
+  docs-supported-devices: done
+  docs-supported-functions: done
+  docs-troubleshooting: done
+  docs-use-cases: done
+  dynamic-devices:
+    status: exempt
+    comment: Integration does not have devices.
+  entity-category:
+    status: exempt
+    comment: Integration does not have entities.
+  entity-device-class:
+    status: exempt
+    comment: Integration does not have entities.
+  entity-disabled-by-default:
+    status: exempt
+    comment: Integration does not have entities.
+  entity-translations:
+    status: exempt
+    comment: Integration does not have entities.
+  exception-translations: done
+  icon-translations:
+    status: exempt
+    comment: Integration does not have entities.
+  reconfiguration-flow:
+    status: todo
+    comment: Planned alongside the reauthentication flow.
+  repair-issues:
+    status: exempt
+    comment: No user-actionable repairs are raised by this integration.
+  stale-devices:
+    status: exempt
+    comment: Integration does not have devices.
+
+  # Platinum
+  async-dependency: done
+  inject-websession:
+    status: exempt
+    comment: The mcp client manages its own transport sessions.
+  strict-typing: done
