@@ -1,6 +1,10 @@
 {
   "domain": "assist_mcp_chat",
   "name": "Assist MCP Chat",
+  "after_dependencies": [
+    "hassio",
+    "conversation"
+  ],
   "codeowners": [
     "@victorigualada"
   ],
@@ -8,10 +12,6 @@
   "dependencies": [
     "http",
     "frontend"
-  ],
-  "after_dependencies": [
-    "hassio",
-    "conversation"
   ],
   "documentation": "https://github.com/victorigualada/ha-assist-mcp-chat",
   "integration_type": "service",
