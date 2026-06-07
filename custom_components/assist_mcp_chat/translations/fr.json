@@ -1,0 +1,35 @@
+{
+  "config": {
+    "flow_title": "{name}",
+    "step": {
+      "user": {
+        "title": "Se connecter à ha-mcp",
+        "description": "Saisissez l'adresse de votre serveur ha-mcp, par exemple {example_url}. Laissez le jeton vide si le serveur ne nécessite pas d'authentification.",
+        "data": {
+          "url": "URL",
+          "token": "Jeton d'accès"
+        },
+        "data_description": {
+          "url": "L'URL complète du point de terminaison MCP du serveur ha-mcp.",
+          "token": "Un jeton d'accès de longue durée, si votre serveur ha-mcp en exige un."
+        }
+      },
+      "hassio_confirm": {
+        "title": "Se connecter à ha-mcp",
+        "description": "Voulez-vous connecter Home Assistant au module complémentaire ha-mcp détecté {name} ?"
+      }
+    },
+    "error": {
+      "invalid_url": "L'URL n'est pas valide.",
+      "cannot_connect": "Échec de la connexion au serveur ha-mcp.",
+      "invalid_auth": "Le jeton d'accès a été rejeté par le serveur ha-mcp.",
+      "timeout_connect": "Délai d'attente dépassé lors de la connexion au serveur ha-mcp.",
+      "unknown": "Erreur inattendue"
+    },
+    "abort": {
+      "already_configured": "Ce serveur ha-mcp est déjà configuré.",
+      "missing_capabilities": "Le serveur n'expose aucun outil et ne peut donc pas être utilisé.",
+      "invalid_discovery_info": "Le module complémentaire ha-mcp n'a pas fourni assez d'informations pour se connecter."
+    }
+  }
+}

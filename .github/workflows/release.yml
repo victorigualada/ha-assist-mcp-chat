@@ -1,0 +1,55 @@
+name: Release
+
+# Builds the frontend bundle and attaches a HACS-installable zip to the
+# GitHub Release. The built JS is never committed — HACS downloads this zip
+# (see `zip_release`/`filename` in hacs.json) and extracts it into
+# config/custom_components/assist_mcp_chat/.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  COMPONENT_DIR: custom_components/assist_mcp_chat
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Build frontend bundle
+        working-directory: frontend
+        run: |
+          npm install
+          npm run build
+
+      - name: Package integration
+        run: |
+          cd "$COMPONENT_DIR"
+          # Zip the runtime files with manifest.json at the archive root, as HACS
+          # extracts the zip directly into the integration directory. The built
+          # frontend/ is included; the build project lives outside this dir.
+          zip -r "$GITHUB_WORKSPACE/assist_mcp_chat.zip" . \
+            -x "__pycache__/*" "*.pyc" "*.map"
+
+      - name: Attach zip to release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: assist_mcp_chat.zip
+
+      - name: Upload zip as workflow artifact
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: assist_mcp_chat
+          path: assist_mcp_chat.zip

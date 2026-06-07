@@ -1,6 +1,6 @@
 # Assist MCP Chat
 
-A custom Home Assistant integration that turns Assist into an enriched, right-side
+A custom Home Assistant integration that turns Assist into an enriched
 **chat drawer** backed by the unofficial
 [ha-mcp](https://github.com/homeassistant-ai/ha-mcp) Model Context Protocol server.
 
@@ -11,78 +11,76 @@ points (the Assist button and the `a` keyboard shortcut), with nothing else to o
 
 ## How it works
 
-- **Backend (Python):** an MCP client (built on the official `mcp` SDK) connects to
+This integration bundles and implements existing HA native components and integrations so it doesn't handle any sensitive information or keys. Everything is passed through HA's core `LLM API`.
+This integration has no server nor makes internet requests. Just taps into existing APIs and interconnects them.
+
+- **Backend:** an MCP client (built on the official `mcp` SDK) connects to
   your ha-mcp server, lists its tools and registers them as an `llm.API`. No model is
   bundled — you select an LLM with your existing conversation agent.
-- **Frontend (Lit):** a small prebuilt module is injected into the frontend. It
+- **Frontend:** an enhanced Assist dialog that does more. It
   intercepts the Assist `show-dialog` event and opens an `ha-drawer`-based chat that
   streams responses through the existing `assist_pipeline/run` WebSocket API and
   renders them with `ha-markdown`.
 
-```
-ha-mcp server ──MCP (HTTP/SSE)──▶ Assist MCP Chat ──llm.API──▶ your LLM agent ──▶ Assist
+On setup, Assist MCP Chat connects to the ha-mcp server, lists its tools and
+registers them as an `llm.API`. Then, for each message (solid = request, dotted =
+result):
+
+```mermaid
+flowchart LR
+    user(["You"])
+    assist["Assist chat drawer"]
+    agent["Your LLM agent"]
+    amc["<b>Assist MCP Chat</b>"]
+    mcp[("ha-mcp server")]
+
+    user -- "prompt" --> assist
+    assist -- "assist_pipeline/run" --> agent
+    agent -- "tool call (llm.API)" --> amc
+    amc -- "MCP (HTTP/SSE)" --> mcp
+    mcp -. "result" .-> amc
+    amc -. "result" .-> agent
+    agent -- "answer" --> assist
+    assist -- "reply" --> user
+
+    classDef hub fill:#03a9f4,stroke:#0277bd,color:#fff;
+    class amc hub;
 ```
 
 ## Installation
 
-1. Deploy a [ha-mcp](https://github.com/homeassistant-ai/ha-mcp) server (Home
-   Assistant add-on, Docker, or standalone).
-2. Copy `custom_components/assist_mcp_chat` into your Home Assistant `config/custom_components`
-   directory (or install via HACS), then restart Home Assistant.
+1. Install `ha-mcp`
+
+   [![Open your Home Assistant instance and show the add app repository dialog with a specific repository URL pre-filled.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fhomeassistant-ai%2Fha-mcp)
+
+2. Install this integration:
+
+   [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=victorigualada&repository=ha-assist-mcp-chat&category=Integration)
+
 3. Go to **Settings → Devices & services → Add integration → Assist MCP Chat**.
-   - If ha-mcp runs as an add-on it is **auto-discovered** — just confirm.
-   - Otherwise enter the server **URL** (and an access **token** if required).
-4. Point an LLM agent at the tools: edit your conversation agent (for example
-   Anthropic, OpenAI, Google, or Ollama) and set its **control Home Assistant** API to
-   **Assist MCP Chat**. Make sure that agent is used by your Assist pipeline.
+  - If ha-mcp runs as an add-on it is **auto-discovered** — just confirm.
+  - Otherwise enter the server **URL**
 
-## Configuration parameters
+4. Point an LLM agent at the tools: edit your conversation agent (for example Anthropic, OpenAI, Google, or Ollama) and set its **control Home Assistant** API to **ha-mcp** like in the picture below.
+   
+   <img src="assets/openai-ha-mcp.png" alt="Setting an OpenAI conversation agent's &quot;Control Home Assistant&quot; API to ha-mcp" width="320">
 
-| Parameter | Required | Description |
-| --------- | -------- | ----------- |
-| URL       | Yes (manual) | Full URL of the ha-mcp MCP endpoint, e.g. `http://homeassistant.local:8099/mcp`. Discovered automatically for the add-on. |
-| Access token | No | Long-lived token, only if your ha-mcp server requires authentication. |
-
-## Use cases
-
-- "Turn off all the downstairs lights and set the thermostat to 20°C."
-- "What automations ran in the last hour, and did any fail?"
-- "Create a scene from the current living-room state."
-
-The available capabilities are whatever your ha-mcp server exposes.
-
-## Data update
-
-The list of available tools is refreshed from the ha-mcp server every 30 minutes and
-on reload. Tool calls themselves are made on demand when the LLM invokes them.
-
-## Known limitations
-
-- **Frontend interception:** the drawer replaces the Assist dialog by intercepting the
-  `show-dialog` event for `ha-voice-command-dialog`. If a future frontend release
-  renames that dialog the bundled module needs an update.
-- **Voice (STT/TTS):** the drawer is text-first; spoken input/output is not yet wired
-  up (planned).
-- **Auth:** token and add-on discovery are supported; OAuth is planned.
-
-## Troubleshooting
-
-- **No tools appear / setup retries:** confirm the URL is reachable from Home
-  Assistant and that ha-mcp exposes the *Tools* capability. Check
-  *Settings → Devices & services → Assist MCP Chat → Download diagnostics*.
-- **`invalid_auth`:** the server requires a token, or the token is wrong.
-- **The old centered dialog still opens:** hard-refresh the browser so the injected
-  module reloads, and confirm the integration is configured.
+5. Ensure you use an LLM model that can use tools.
 
 ## Development
 
-The frontend lives in `frontend_src/` and builds to `frontend/entrypoint.js`:
+The frontend project lives in `frontend/` (repo root) and builds into the
+integration's served bundle at `custom_components/assist_mcp_chat/frontend/`:
 
 ```bash
-cd frontend_src
+cd frontend
 npm install
-npm run build   # outputs ../frontend/entrypoint.js
+npm run build
 ```
+
+The built bundle is git-ignored and shipped via the release zip (see
+`.github/workflows/release.yml`), so install via HACS or a release — not by
+cloning, which won't contain the built JS.
 
 Backend tests use `pytest-homeassistant-custom-component`:
 
@@ -90,3 +88,7 @@ Backend tests use `pytest-homeassistant-custom-component`:
 pip install pytest-homeassistant-custom-component
 pytest tests
 ```
+
+## Disclaimer
+
+AI has been used during development of this integration.

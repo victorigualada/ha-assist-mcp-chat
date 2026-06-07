@@ -1,0 +1,23 @@
+name: Release Drafter
+
+# Runs only on merges to main, where it (re)drafts the next release. It does not
+# run on pull requests — drafting a release is a main-branch concern, and the
+# autolabeler needs write access the token doesn't have on PR events.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  update_release_draft:
+    permissions:
+      contents: write # create/update the draft release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: release-drafter/release-drafter@v6
+        with:
+          config-name: release-drafter.yml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

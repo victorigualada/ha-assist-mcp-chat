@@ -1,0 +1,35 @@
+{
+  "config": {
+    "flow_title": "{name}",
+    "step": {
+      "user": {
+        "title": "Conectar con ha-mcp",
+        "description": "Introduce la dirección de tu servidor ha-mcp, por ejemplo {example_url}. Deja el token vacío si el servidor no requiere autenticación.",
+        "data": {
+          "url": "URL",
+          "token": "Token de acceso"
+        },
+        "data_description": {
+          "url": "La URL completa del endpoint MCP del servidor ha-mcp.",
+          "token": "Un token de acceso de larga duración, si tu servidor ha-mcp lo requiere."
+        }
+      },
+      "hassio_confirm": {
+        "title": "Conectar con ha-mcp",
+        "description": "¿Quieres conectar Home Assistant con el complemento ha-mcp detectado {name}?"
+      }
+    },
+    "error": {
+      "invalid_url": "La URL no es válida.",
+      "cannot_connect": "No se ha podido conectar con el servidor ha-mcp.",
+      "invalid_auth": "El servidor ha-mcp rechazó el token de acceso.",
+      "timeout_connect": "Se agotó el tiempo de espera al conectar con el servidor ha-mcp.",
+      "unknown": "Error inesperado"
+    },
+    "abort": {
+      "already_configured": "Este servidor ha-mcp ya está configurado.",
+      "missing_capabilities": "El servidor no expone ninguna herramienta, por lo que no se puede usar.",
+      "invalid_discovery_info": "El complemento ha-mcp no proporcionó suficiente información para conectarse."
+    }
+  }
+}

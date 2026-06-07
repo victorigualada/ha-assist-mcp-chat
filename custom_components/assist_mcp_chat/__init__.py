@@ -6,6 +6,7 @@ Assist dialog into an enriched right-side chat drawer.
 """
 
 from dataclasses import dataclass
+import hashlib
 from pathlib import Path
 
 from homeassistant.components import frontend
@@ -22,6 +23,14 @@ from .types import HaMcpChatConfigEntry
 _FRONTEND_REGISTERED = f"{DOMAIN}_frontend_registered"
 
 
+def _module_hash(path: Path) -> str:
+    """Return a short content hash of the frontend module for cache-busting."""
+    try:
+        return hashlib.sha256(path.read_bytes()).hexdigest()[:8]
+    except OSError:
+        return "0"
+
+
 async def _async_register_frontend(hass: HomeAssistant) -> None:
     """Serve and inject the bundled frontend module exactly once."""
     if hass.data.get(_FRONTEND_REGISTERED):
@@ -32,7 +41,13 @@ async def _async_register_frontend(hass: HomeAssistant) -> None:
     await hass.http.async_register_static_paths(
         [StaticPathConfig(FRONTEND_URL_BASE, str(module_dir), cache_headers=True)]
     )
-    frontend.add_extra_js_url(hass, FRONTEND_SCRIPT_URL)
+    # The static path sets long, immutable cache headers, so a fixed URL would let
+    # browsers serve a stale module forever. Append a content hash so the URL changes
+    # whenever the bundle is rebuilt, forcing a refetch.
+    version = await hass.async_add_executor_job(
+        _module_hash, module_dir / "entrypoint.js"
+    )
+    frontend.add_extra_js_url(hass, f"{FRONTEND_SCRIPT_URL}?v={version}")
 
 
 async def async_setup_entry(

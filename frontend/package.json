@@ -1,0 +1,27 @@
+{
+  "name": "assist-mcp-chat-frontend",
+  "version": "0.1.0",
+  "description": "Frontend module for the Assist MCP Chat custom integration.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "npm run typecheck && esbuild src/entrypoint.ts --bundle --format=esm --minify --sourcemap --target=es2021 --outfile=../custom_components/assist_mcp_chat/frontend/entrypoint.js",
+    "lint": "eslint src && prettier --check src",
+    "format": "eslint src --fix && prettier --write src"
+  },
+  "dependencies": {
+    "lit": "3.3.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.17.0",
+    "@mdi/js": "7.4.47",
+    "esbuild": "0.24.0",
+    "eslint": "9.17.0",
+    "eslint-config-prettier": "9.1.0",
+    "globals": "15.14.0",
+    "prettier": "3.4.2",
+    "typescript": "5.7.2",
+    "typescript-eslint": "8.18.2"
+  }
+}

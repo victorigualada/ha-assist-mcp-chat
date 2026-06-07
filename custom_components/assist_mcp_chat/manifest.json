@@ -1,15 +1,24 @@
 {
   "domain": "assist_mcp_chat",
   "name": "Assist MCP Chat",
-  "codeowners": ["@victorigualada"],
+  "after_dependencies": [
+    "hassio",
+    "conversation"
+  ],
+  "codeowners": [
+    "@victorigualada"
+  ],
   "config_flow": true,
-  "dependencies": ["http", "frontend"],
-  "after_dependencies": ["hassio", "conversation"],
+  "dependencies": [
+    "http",
+    "frontend"
+  ],
   "documentation": "https://github.com/victorigualada/ha-assist-mcp-chat",
   "integration_type": "service",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/victorigualada/ha-assist-mcp-chat/issues",
-  "quality_scale": "gold",
-  "requirements": ["mcp==1.26.0", "voluptuous-openapi==0.1.0"],
+  "requirements": [
+    "mcp==1.26.0"
+  ],
   "version": "0.1.0"
 }
