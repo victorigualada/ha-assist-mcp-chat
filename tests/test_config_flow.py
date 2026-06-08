@@ -151,6 +151,27 @@ async def test_user_flow_missing_capabilities(
     assert result["reason"] == "missing_capabilities"
 
 
+async def test_addon_base_url_uses_internal_host(hass: HomeAssistant) -> None:
+    """The prefill host is derived from HA's internal URL, not hardcoded."""
+    from custom_components.assist_mcp_chat.config_flow import _addon_base_url
+
+    await hass.config.async_update(internal_url="http://192.168.1.50:8123")
+    assert _addon_base_url(hass) == "http://192.168.1.50:9583"
+
+
+async def test_addon_base_url_ignores_nabu_casa(hass: HomeAssistant) -> None:
+    """An external / Nabu Casa URL must never leak into the prefilled base."""
+    from custom_components.assist_mcp_chat.config_flow import _addon_base_url
+
+    await hass.config.async_update(
+        internal_url="http://homeassistant.local:8123",
+        external_url="https://abcdef.ui.nabu.casa",
+    )
+    base = _addon_base_url(hass)
+    assert "nabu.casa" not in base
+    assert base == "http://homeassistant.local:9583"
+
+
 async def test_user_flow_unknown_error(
     hass: HomeAssistant, mock_mcp_client: AsyncMock
 ) -> None:
