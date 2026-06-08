@@ -2,6 +2,7 @@
 
 import logging
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 import voluptuous as vol
@@ -43,15 +44,44 @@ def _compose_url(base: str, secret: str) -> str:
     return f"{base}{secret}"
 
 
+def _addon_base_url(hass: HomeAssistant) -> str:
+    """Reachable base URL for the host-network add-on.
+
+    The add-on shares the host with Home Assistant, so HA's own *internal* host
+    (the user's LAN IP or hostname) on the add-on port is the right target. We
+    derive it from HA's config instead of assuming ``homeassistant.local``, and
+    explicitly exclude the external / Nabu Casa URL — that routes out to the cloud
+    and isn't where the add-on listens. The field stays editable and is validated,
+    so an imperfect guess is harmless.
+    """
+    host = "homeassistant.local"
+    try:
+        from homeassistant.helpers.network import get_url
+
+        internal = get_url(
+            hass,
+            allow_internal=True,
+            allow_external=False,
+            allow_cloud=False,
+            allow_ip=True,
+            require_ssl=False,
+            require_current_request=False,
+        )
+        host = urlparse(internal).hostname or host
+    except Exception:  # noqa: BLE001 - fall back to the default host
+        _LOGGER.debug("Could not derive HA internal host for prefill", exc_info=True)
+    return f"http://{host}:{ADDON_PORT}"
+
+
 async def _async_addon_state(hass: HomeAssistant) -> tuple[str | None, bool]:
     """Detect the ha-mcp add-on under Supervisor.
 
-    Returns ``(base_url, show_install_hint)``:
-    - ``base_url`` prefills scheme/host/port when the add-on is installed. The
-      secret path is private to the add-on, so the user still supplies that; a
-      wrong host guess is harmless since the URL stays editable and is validated.
-    - ``show_install_hint`` is True when we're on Supervisor but the add-on isn't
-      installed, so the form can offer a one-click install link.
+    Returns ``(base_url, show_install_hint)``. The add-on runs on the host network
+    at a fixed port, so on Supervisor ``http://homeassistant.local:<port>`` is the
+    right base (exactly what the add-on log prints), and it stays editable and is
+    validated before use. We only *suppress* the prefill and offer an install link
+    when we can positively confirm the add-on isn't installed; any detection error
+    falls back to prefilling, which is the common case.
     """
     try:
         from homeassistant.components.hassio import is_hassio
@@ -60,20 +90,16 @@ async def _async_addon_state(hass: HomeAssistant) -> tuple[str | None, bool]:
     if not is_hassio(hass):
         return None, False
 
+    base = _addon_base_url(hass)
     try:
         from homeassistant.components.hassio.handler import get_supervisor_client
 
-        client = get_supervisor_client(hass)
-        addons = await client.addons.list()
-        addon = next((a for a in addons if ADDON_SLUG in a.slug), None)
-        if addon is None:
+        addons = await get_supervisor_client(hass).addons.list()
+        if not any(ADDON_SLUG in getattr(addon, "slug", "") for addon in addons):
             return None, True
-        info = await client.addons.addon_info(addon.slug)
-        host = getattr(info, "hostname", None) or "homeassistant.local"
-        return f"http://{host}:{ADDON_PORT}", False
-    except Exception:  # noqa: BLE001 - best-effort detection
+    except Exception:  # noqa: BLE001 - best-effort; assume installed and prefill
         _LOGGER.debug("ha-mcp add-on detection failed", exc_info=True)
-        return None, False
+    return base, False
 
 
 async def validate_input(hass: HomeAssistant, url: str) -> dict[str, Any]:
