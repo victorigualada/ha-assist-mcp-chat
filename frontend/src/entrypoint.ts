@@ -130,13 +130,8 @@ const patchExternalAssist = (external: ExternalMessaging): void => {
       original(msg);
       return;
     }
-    // "last_used"/"preferred" are sentinels the drawer resolves itself; only a
-    // concrete pipeline id is worth forwarding.
-    const pid = msg.payload?.pipeline_id;
-    openDrawer({
-      pipeline_id:
-        pid && pid !== "last_used" && pid !== "preferred" ? pid : undefined,
-    });
+    // The drawer resolves the pipeline_id sentinels itself.
+    openDrawer({ pipeline_id: msg.payload?.pipeline_id });
   };
 };
 
