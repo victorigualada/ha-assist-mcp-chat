@@ -6,8 +6,9 @@ A custom Home Assistant integration that turns Assist into an enriched
 
 It connects to your ha-mcp server, exposes its ~84 Home-Assistant-control tools to
 Home Assistant's conversation agents as an LLM API, and replaces the centered Assist
-dialog with a Markdown-rendering chat drawer — all from the standard Assist entry
-points (the Assist button and the `a` keyboard shortcut), with nothing else to open.
+dialog with a Markdown-rendering chat drawer — from the standard Assist entry points
+(the Assist button, the 3-dot dashboard menu and the `a` keyboard shortcut, plus the
+button and menu inside the mobile Companion app), with nothing else to open.
 
 ## How it works
 
@@ -18,9 +19,12 @@ This integration has no server nor makes internet requests. Just taps into exist
   your ha-mcp server, lists its tools and registers them as an `llm.API`. No model is
   bundled — you select an LLM with your existing conversation agent.
 - **Frontend:** an enhanced Assist dialog that does more. It
-  intercepts the Assist `show-dialog` event and opens an `ha-drawer`-based chat that
-  streams responses through the existing `assist_pipeline/run` WebSocket API and
-  renders them with `ha-markdown`.
+  intercepts the Assist `show-dialog` event on the web — and, inside the mobile
+  Companion app, the `assist/show` message the frontend sends over the external bus
+  to the app's native Assist — and opens an `ha-drawer`-based chat that streams
+  responses through the existing `assist_pipeline/run` WebSocket API and renders
+  them with `ha-markdown`. (Native Companion-app gestures bypass the web frontend
+  and still open stock Assist.)
 
 On setup, Assist MCP Chat connects to the ha-mcp server, lists its tools and
 registers them as an `llm.API`. Then, for each message (solid = request, dotted =
