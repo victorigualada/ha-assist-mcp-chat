@@ -26,12 +26,14 @@ const STORAGE_KEY = "assist-mcp-chat-pipeline";
 /**
  * Modal chat surface that replaces the centered Assist dialog.
  *
- * On wide viewports it slides in as a right-side panel; on narrow (mobile)
- * viewports it slides up as a bottom sheet, mirroring how the native Assist
- * dialog presents per platform. It renders its own backdrop and panel rather
- * than wrapping `<ha-drawer>` so that open/close is fully under our control and
- * not tied to that component's version-dependent internals (the migration off
- * MDC, for instance, renamed its close event and broke reopening).
+ * On wide viewports it slides in as our own right-side panel; on narrow (mobile)
+ * viewports it renders inside HA's native `ha-bottom-sheet`, so it looks and
+ * behaves like other mobile dialogs (swipe / scrim / Escape to dismiss). That
+ * component was introduced in HA 2026.3, which is the integration's minimum.
+ *
+ * The surface renders its own desktop backdrop rather than wrapping `<ha-drawer>`
+ * so open/close stays under our control and isn't tied to that component's
+ * version-dependent internals.
  */
 @customElement("assist-mcp-chat-drawer")
 export class AssistMcpChatDrawer extends LitElement {
@@ -50,6 +52,26 @@ export class AssistMcpChatDrawer extends LitElement {
   @state() private _settingsOpen = false;
 
   @state() private _pipelineMenuOpen = false;
+
+  // Below this width we present as HA's native bottom sheet rather than a
+  // right-side drawer; tracked live so rotation/resize switches presentation.
+  private _mql = window.matchMedia("(max-width: 640px)");
+
+  @state() private _mobile = this._mql.matches;
+
+  private _onViewportChange = (ev: MediaQueryListEvent): void => {
+    this._mobile = ev.matches;
+  };
+
+  public connectedCallback(): void {
+    super.connectedCallback();
+    this._mql.addEventListener("change", this._onViewportChange);
+  }
+
+  public disconnectedCallback(): void {
+    super.disconnectedCallback();
+    this._mql.removeEventListener("change", this._onViewportChange);
+  }
 
   public async openDialog(params?: { pipeline_id?: string }): Promise<void> {
     this._open = true;
@@ -160,6 +182,11 @@ export class AssistMcpChatDrawer extends LitElement {
     if (!this._open) {
       return nothing;
     }
+    return this._mobile ? this._renderSheet() : this._renderDrawer();
+  }
+
+  // Wide viewports: a right-side panel with our own backdrop.
+  private _renderDrawer(): TemplateResult {
     return html`
       <div
         class="backdrop"
@@ -167,43 +194,65 @@ export class AssistMcpChatDrawer extends LitElement {
         @keydown=${this._handleKeyDown}
       >
         <div class="content" dir="ltr" role="dialog" aria-modal="true">
-          <header class="bar">
-            <ha-icon-button
-              class="close"
-              .path=${mdiClose}
-              .label=${this.hass.localize("ui.common.close")}
-              @click=${this.closeDialog}
-            ></ha-icon-button>
-            <div class="title">
-              <div class="title-row">
-                <span class="title-main"
-                  >${
-                    this.hass.localize("ui.dialogs.voice_command.title") ||
-                    "Assist"
-                  }</span
-                >
-                <span class="title-sub">MCP</span>
-              </div>
-              ${this._renderPipelineTrigger()}
-            </div>
-            <ha-icon-button
-              class="cog ${this._settingsOpen ? "active" : ""}"
-              .path=${mdiCog}
-              .label=${"Settings"}
-              aria-haspopup="dialog"
-              aria-expanded=${this._settingsOpen}
-              @click=${this._toggleSettings}
-            ></ha-icon-button>
-          </header>
-          ${this._pipelineMenuOpen ? this._renderPipelineMenu() : nothing}
-          ${this._settingsOpen ? this._renderSettings() : nothing}
-          <assist-mcp-chat
-            .hass=${this.hass}
-            .pipelineId=${this._pipelineId}
-            .showActivity=${this._settings.showActivity}
-          ></assist-mcp-chat>
+          ${this._renderInner()}
         </div>
       </div>
+    `;
+  }
+
+  // Narrow viewports: HA's native bottom sheet handles scrim, swipe and Escape.
+  private _renderSheet(): TemplateResult {
+    return html`
+      <ha-bottom-sheet
+        open
+        .flexContent=${true}
+        @closed=${this.closeDialog}
+        @after-show=${this._focusInput}
+      >
+        <div class="sheet-content" dir="ltr" @keydown=${this._handleKeyDown}>
+          ${this._renderInner()}
+        </div>
+      </ha-bottom-sheet>
+    `;
+  }
+
+  // Header + chat shared by both presentations.
+  private _renderInner(): TemplateResult {
+    return html`
+      <header class="bar">
+        <ha-icon-button
+          class="close"
+          .path=${mdiClose}
+          .label=${this.hass.localize("ui.common.close")}
+          @click=${this.closeDialog}
+        ></ha-icon-button>
+        <div class="title">
+          <div class="title-row">
+            <span class="title-main"
+              >${
+                this.hass.localize("ui.dialogs.voice_command.title") || "Assist"
+              }</span
+            >
+            <span class="title-sub">MCP</span>
+          </div>
+          ${this._renderPipelineTrigger()}
+        </div>
+        <ha-icon-button
+          class="cog ${this._settingsOpen ? "active" : ""}"
+          .path=${mdiCog}
+          .label=${"Settings"}
+          aria-haspopup="dialog"
+          aria-expanded=${this._settingsOpen}
+          @click=${this._toggleSettings}
+        ></ha-icon-button>
+      </header>
+      ${this._pipelineMenuOpen ? this._renderPipelineMenu() : nothing}
+      ${this._settingsOpen ? this._renderSettings() : nothing}
+      <assist-mcp-chat
+        .hass=${this.hass}
+        .pipelineId=${this._pipelineId}
+        .showActivity=${this._settings.showActivity}
+      ></assist-mcp-chat>
     `;
   }
 
@@ -379,29 +428,17 @@ export class AssistMcpChatDrawer extends LitElement {
           transform: none;
         }
       }
-      /* Mobile: a bottom sheet that slides up, like the native Assist dialog. */
-      @media (max-width: 640px) {
-        .backdrop {
-          justify-content: stretch;
-          align-items: flex-end;
-        }
-        .content {
-          width: 100%;
-          height: 92vh;
-          max-height: 92vh;
-          border-top-left-radius: var(--ha-border-radius-xl, 16px);
-          border-top-right-radius: var(--ha-border-radius-xl, 16px);
-          box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.28);
-          animation-name: amc-panel-sheet;
-        }
+      /* Mobile: HA's native bottom sheet renders the panel; size it for chat. */
+      ha-bottom-sheet {
+        --ha-bottom-sheet-height: 88vh;
+        --ha-bottom-sheet-max-height: 88vh;
       }
-      @keyframes amc-panel-sheet {
-        from {
-          transform: translateY(100%);
-        }
-        to {
-          transform: none;
-        }
+      .sheet-content {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        min-height: 0;
       }
       .bar {
         display: flex;
