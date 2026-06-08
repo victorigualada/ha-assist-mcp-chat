@@ -3,7 +3,7 @@
 // Lives in its own module because both the drawer (which edits settings) and the
 // entrypoint keyboard handler (which reads the shortcut setting) depend on it.
 
-export const SETTINGS_KEY = "assist-mcp-chat-settings";
+const SETTINGS_KEY = "assist-mcp-chat-settings";
 export const SETTINGS_EVENT = "assist-mcp-chat-settings-changed";
 
 export interface ChatSettings {

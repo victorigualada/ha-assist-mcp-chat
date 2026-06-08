@@ -52,10 +52,11 @@ export class AssistMcpChatDrawer extends LitElement {
     this._open = true;
     this._loadSettings();
     const stored = window.localStorage.getItem(STORAGE_KEY) || undefined;
+    // "last_used"/"preferred" are sentinels HA's Assist entry points pass when no
+    // concrete pipeline is chosen; fall back to the drawer's own remembered pick.
+    const id = params?.pipeline_id;
     this._pipelineId =
-      params?.pipeline_id && params.pipeline_id !== "last_used"
-        ? params.pipeline_id
-        : stored;
+      id && id !== "last_used" && id !== "preferred" ? id : stored;
     // The native picker is lazily loaded by HA; re-render once it registers.
     await this._loadPipelines();
     // Fallback in case the drawer's "opened" event is missed; harmless if the

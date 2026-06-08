@@ -6,7 +6,7 @@ import {
   SETTINGS_EVENT,
   type ChatSettings,
 } from "./settings";
-import type { HomeAssistant } from "./types";
+import type { ExternalMessaging, HomeAssistant } from "./types";
 
 // The Assist button opens the centered dialog through a "show-dialog" event with
 // this dialogTag. Intercepting that event re-routes the button to our right-side
@@ -106,3 +106,52 @@ window.addEventListener(
   },
   true,
 );
+
+// Mobile (Companion app) interception.
+//
+// Inside the app the "show-dialog" event above never fires for Assist: the app
+// reports `hasAssist`, so the frontend's showVoiceCommandDialog() hands off to
+// the app's native Assist by sending an "assist/show" message over the external
+// bus instead of opening a dialog. We wrap that bus's fireMessage to catch
+// "assist/show" and open our drawer instead — covering the 3-dot overflow menu,
+// the toolbar button and the "a" key inside the app. (Native gestures bypass the
+// webview entirely and cannot be hooked from here.)
+const PATCH_FLAG = "__assistMcpChatPatched";
+
+const patchExternalAssist = (external: ExternalMessaging): void => {
+  const ext = external as ExternalMessaging & { [PATCH_FLAG]?: boolean };
+  if (ext[PATCH_FLAG]) {
+    return;
+  }
+  ext[PATCH_FLAG] = true;
+  const original = external.fireMessage.bind(external);
+  external.fireMessage = (msg) => {
+    if (msg?.type !== "assist/show") {
+      original(msg);
+      return;
+    }
+    // The drawer resolves the pipeline_id sentinels itself.
+    openDrawer({ pipeline_id: msg.payload?.pipeline_id });
+  };
+};
+
+// `external` is populated asynchronously during the app's bus handshake and the
+// instance persists for the session, so poll briefly until it appears, then stop.
+// On desktop/web it never appears and the poll simply times out.
+const tryPatchExternalAssist = (): boolean => {
+  const external = getHomeAssistant()?.hass?.auth?.external;
+  if (!external) {
+    return false;
+  }
+  patchExternalAssist(external);
+  return true;
+};
+
+if (!tryPatchExternalAssist()) {
+  let attempts = 0;
+  const timer = window.setInterval(() => {
+    if (tryPatchExternalAssist() || ++attempts >= 20) {
+      window.clearInterval(timer);
+    }
+  }, 500);
+}
