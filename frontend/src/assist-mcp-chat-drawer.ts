@@ -24,11 +24,14 @@ import type {
 const STORAGE_KEY = "assist-mcp-chat-pipeline";
 
 /**
- * Right-side drawer that replaces the centered Assist dialog.
+ * Modal chat surface that replaces the centered Assist dialog.
  *
- * `<ha-drawer>` is Material's left drawer; setting `direction="rtl"` anchors it to
- * the right, and the content is wrapped in a `dir="ltr"` element so text layout is
- * unaffected for left-to-right users.
+ * On wide viewports it slides in as a right-side panel; on narrow (mobile)
+ * viewports it slides up as a bottom sheet, mirroring how the native Assist
+ * dialog presents per platform. It renders its own backdrop and panel rather
+ * than wrapping `<ha-drawer>` so that open/close is fully under our control and
+ * not tied to that component's version-dependent internals (the migration off
+ * MDC, for instance, renamed its close event and broke reopening).
  */
 @customElement("assist-mcp-chat-drawer")
 export class AssistMcpChatDrawer extends LitElement {
@@ -57,10 +60,9 @@ export class AssistMcpChatDrawer extends LitElement {
     const id = params?.pipeline_id;
     this._pipelineId =
       id && id !== "last_used" && id !== "preferred" ? id : stored;
-    // The native picker is lazily loaded by HA; re-render once it registers.
     await this._loadPipelines();
-    // Fallback in case the drawer's "opened" event is missed; harmless if the
-    // event already focused the composer.
+    // Focus the composer once the panel has rendered (after the open animation
+    // starts); the rAF lets layout settle so the input is focusable.
     await this.updateComplete;
     requestAnimationFrame(() => this._focusInput());
   }
@@ -95,10 +97,16 @@ export class AssistMcpChatDrawer extends LitElement {
   }
 
   private _handleKeyDown(ev: KeyboardEvent): void {
-    if (ev.key === "Escape" && (this._settingsOpen || this._pipelineMenuOpen)) {
-      ev.stopPropagation();
+    if (ev.key !== "Escape") {
+      return;
+    }
+    ev.stopPropagation();
+    // Escape backs out of an open popover first, otherwise closes the drawer.
+    if (this._settingsOpen || this._pipelineMenuOpen) {
       this._settingsOpen = false;
       this._pipelineMenuOpen = false;
+    } else {
+      this.closeDialog();
     }
   }
 
@@ -153,15 +161,12 @@ export class AssistMcpChatDrawer extends LitElement {
       return nothing;
     }
     return html`
-      <ha-drawer
-        type="modal"
-        open
-        direction="rtl"
-        @MDCDrawer:closed=${this.closeDialog}
-        @MDCDrawer:opened=${this._focusInput}
+      <div
+        class="backdrop"
+        @click=${this._onBackdropClick}
         @keydown=${this._handleKeyDown}
       >
-        <div class="content" dir="ltr">
+        <div class="content" dir="ltr" role="dialog" aria-modal="true">
           <header class="bar">
             <ha-icon-button
               class="close"
@@ -198,8 +203,15 @@ export class AssistMcpChatDrawer extends LitElement {
             .showActivity=${this._settings.showActivity}
           ></assist-mcp-chat>
         </div>
-      </ha-drawer>
+      </div>
     `;
+  }
+
+  // Clicking the dimmed area outside the panel dismisses, like the native dialog.
+  private _onBackdropClick(ev: MouseEvent): void {
+    if (ev.target === ev.currentTarget) {
+      this.closeDialog();
+    }
   }
 
   // Compact dropdown trigger under the title, mirroring core Assist's dialog.
@@ -328,14 +340,68 @@ export class AssistMcpChatDrawer extends LitElement {
     popover,
     css`
       :host {
-        --mdc-drawer-width: min(100vw, 680px);
+        display: contents;
+      }
+      /* Full-viewport modal layer that dims the app and anchors the panel. */
+      .backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        display: flex;
+        justify-content: flex-end;
+        background-color: rgba(0, 0, 0, 0.46);
+        animation: amc-backdrop 180ms ease-out both;
       }
       .content {
         position: relative;
         display: flex;
         flex-direction: column;
         height: 100%;
+        width: min(100vw, 680px);
+        overflow: hidden;
         background-color: var(--card-background-color);
+        box-shadow: -8px 0 28px rgba(0, 0, 0, 0.28);
+        animation: amc-panel-side 240ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+      }
+      @keyframes amc-backdrop {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+      @keyframes amc-panel-side {
+        from {
+          transform: translateX(100%);
+        }
+        to {
+          transform: none;
+        }
+      }
+      /* Mobile: a bottom sheet that slides up, like the native Assist dialog. */
+      @media (max-width: 640px) {
+        .backdrop {
+          justify-content: stretch;
+          align-items: flex-end;
+        }
+        .content {
+          width: 100%;
+          height: 92vh;
+          max-height: 92vh;
+          border-top-left-radius: var(--ha-border-radius-xl, 16px);
+          border-top-right-radius: var(--ha-border-radius-xl, 16px);
+          box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.28);
+          animation-name: amc-panel-sheet;
+        }
+      }
+      @keyframes amc-panel-sheet {
+        from {
+          transform: translateY(100%);
+        }
+        to {
+          transform: none;
+        }
       }
       .bar {
         display: flex;
@@ -562,6 +628,10 @@ export class AssistMcpChatDrawer extends LitElement {
       }
 
       @media (prefers-reduced-motion: reduce) {
+        .backdrop,
+        .content {
+          animation: none;
+        }
         .cog {
           transition: none !important;
         }
