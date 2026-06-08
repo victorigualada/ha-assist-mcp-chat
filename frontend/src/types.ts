@@ -9,11 +9,25 @@ export interface HassConnection {
   ): Promise<() => void>;
 }
 
+// Outgoing message on the external bus the Companion app attaches to. We only
+// care about "assist/show", which the frontend sends instead of opening its own
+// dialog when the app reports `hasAssist`. See entrypoint.ts for why we hook it.
+export interface ExternalBusMessage {
+  type: string;
+  payload?: { pipeline_id?: string; start_listening?: boolean };
+}
+
+export interface ExternalMessaging {
+  fireMessage: (msg: ExternalBusMessage) => void;
+}
+
 export interface HomeAssistant {
   connection: HassConnection;
   localize: (key: string, values?: Record<string, unknown>) => string;
   callWS<T>(msg: Record<string, unknown>): Promise<T>;
   user?: { is_admin?: boolean };
+  // Present only inside the Companion app's webview.
+  auth?: { external?: ExternalMessaging };
 }
 
 export interface AssistPipeline {
